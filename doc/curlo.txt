@@ -1,0 +1,285 @@
+*curlo.nvim.txt*  Run curl commands directly from Neovim                      *curlo*
+
+==============================================================================
+INTRODUCTION                                                  *curlo-intro*
+
+curlo.nvim lets you write curl commands in `.curl` files, execute them with a
+keymap or user command, and view the formatted response in a configurable
+result window.
+
+Features:
+  - Syntax highlighting for `.curl` files
+  - Multi-line curl commands (continuation with `\`)
+  - Run curl under cursor or all commands in buffer
+  - Auto-format JSON (via jq / python3 / vim.json) and XML (via xmllint)
+  - Four display modes: vsplit, split, float, tab
+  - File-local variable definitions (`@name = value`)
+  - `.env` file support for environment-specific secrets
+  - Response capture directives (`@var <- $.json.path`)
+  - Session history with navigation between responses
+  - Fully configurable keymap and window behaviour
+
+==============================================================================
+REQUIREMENTS                                                  *curlo-requirements*
+
+  - Neovim >= 0.9
+  - `curl` on $PATH
+  - Optional: `jq` or `python3` for JSON formatting
+  - Optional: `xmllint` for XML/HTML formatting
+
+==============================================================================
+SETUP                                                         *curlo-setup*
+
+Add to your Neovim config (lazy.nvim example): >lua
+
+  {
+    "14096/curlo.nvim",
+    ft = "curl",
+    config = function()
+      require("curlo").setup({
+        -- all fields are optional; these are the defaults
+        keymap            = "<leader>cc",
+        keymap_opts       = { noremap = true, silent = true, desc = "Run curl under cursor" },
+        display           = "vsplit",  -- "vsplit" | "split" | "float" | "tab"
+        result_win_width  = 80,        -- used by "vsplit"
+        result_win_height = 20,        -- used by "split"
+        float = {
+          width  = 0.6,               -- fraction (<=1) or absolute columns
+          height = 0.8,               -- fraction (<=1) or absolute rows
+          border = "rounded",         -- see :h nvim_open_win border
+          title  = " curlo ",         -- nil to disable
+        },
+        show_headers = false,          -- show full response headers by default
+        format_json  = true,
+        format_xml   = true,
+      })
+    end,
+  }
+<
+
+==============================================================================
+USAGE                                                         *curlo-usage*
+
+1. Open or create a file with the `.curl` extension.
+2. Write a curl command (single or multi-line with `\`): >
+
+    # Fetch JSON
+    curl \
+      -H "Accept: application/json" \
+      https://jsonplaceholder.typicode.com/todos/1
+
+    # POST with body
+    curl -X POST \
+      -H "Content-Type: application/json" \
+      -d '{"title":"foo","body":"bar","userId":1}' \
+      https://jsonplaceholder.typicode.com/posts
+
+<
+3. Place the cursor anywhere inside the command and press `<leader>cc`
+   (or your custom keymap).
+4. The result opens in the configured display mode with the formatted response.
+5. Press `q` in the result window to close it.
+
+==============================================================================
+COMMANDS                                                      *curlo-commands*
+
+:CurloRun        Run the curl command under the cursor.
+:CurloRunAll     Run all curl commands in the current buffer.
+:CurloHistory    Browse the session history of curl responses via vim.ui.select.
+:CurloReset      Clear all captured runtime variables (see |curlo-captures|).
+
+==============================================================================
+RESULT WINDOW KEYMAPS                                         *curlo-keymaps*
+
+The following keymaps are available inside the result window:
+
+  q   Close the result window.
+  H   Toggle display of full response headers.
+  [   Navigate to the previous response in history.
+  ]   Navigate to the next response in history.
+  ?   Show / close the keymap help float.
+
+==============================================================================
+VARIABLES                                                     *curlo-variables*
+
+------------------------------------------------------------------------------
+File-local variables                                          *curlo-file-vars*
+
+Define variables anywhere in your `.curl` file: >
+
+  @base_url = https://api.example.com
+  @token    = my-secret-token
+
+  curl {{base_url}}/users
+    -H "Authorization: Bearer {{token}}"
+    -H "Accept: application/json"
+
+<
+Variable names are case-insensitive.  Definitions can appear before or after
+the requests that reference them.
+
+------------------------------------------------------------------------------
+Environment variables (.env)                                  *curlo-env*
+
+Place a `.env` file in the same directory as the `.curl` file: >
+
+  # .env
+  BASE_URL=https://api.example.com
+  TOKEN=my-secret-token
+
+<
+Then reference with the same `{{NAME}}` syntax: >
+
+  curl {{BASE_URL}}/users
+    -H "Authorization: Bearer {{TOKEN}}"
+
+<
+------------------------------------------------------------------------------
+Resolution priority                                           *curlo-var-priority*
+
+Variables are resolved in this order (highest to lowest):
+
+  1. Captured runtime variables  (set by `@var <- $.path` directives)
+  2. File-local `@name = value` definitions
+  3. `.env` file entries
+  4. Process environment (`$PROCESS_ENV`)
+
+==============================================================================
+CAPTURES                                                      *curlo-captures*
+
+Capture values from a JSON response and store them as runtime variables,
+available to all subsequent requests in the same Neovim session.
+
+Write capture directives after a request block (at most one blank line
+between the request and its captures): >
+
+  # Step 1: obtain an access token
+  curl -X POST https://auth.example.com/oauth/token
+    -H "Content-Type: application/x-www-form-urlencoded"
+    -d "grant_type=client_credentials&client_id=myapp&client_secret=secret"
+
+  @access_token <- $.access_token
+  @expires_in   <- $.expires_in
+
+  # Step 2: use the captured token
+  curl https://api.example.com/users
+    -H "Authorization: Bearer {{access_token}}"
+
+<
+Syntax: >
+
+  @var_name <- $.json.path
+
+<
+Supported path examples:
+
+  @token  <- $.access_token         top-level key
+  @city   <- $.user.address.city    nested path
+  @first  <- $.items[0].name        array element (0-based index)
+
+Captured values persist for the entire Neovim session.  Running a request
+again overwrites previous captured values.  Use `:CurloReset` to clear all
+captured variables.
+
+==============================================================================
+CONFIGURATION                                                 *curlo-config*
+
+All options are passed to `require("curlo").setup({...})`.
+
+  keymap            string   Keymap triggered in curl buffers.
+                             Default: "<leader>cc"
+
+  keymap_opts       table    Options for vim.keymap.set.
+                             Default: { noremap=true, silent=true,
+                                        desc="Run curl under cursor" }
+
+  display           string   How to open the result window.        *curlo-display*
+                             Accepted values:
+                               "vsplit"  vertical split (default)
+                               "split"   horizontal split
+                               "float"   centred floating window
+                               "tab"     new tab page
+
+  result_win_width  number   Width of the result window for "vsplit" mode.
+                             Default: 80
+
+  result_win_height number   Height of the result window for "split" mode.
+                             Default: 20
+
+  show_headers      boolean  Show full response headers in the result window
+                             by default.  Can be toggled at runtime with `H`.
+                             Default: false
+
+  float             table    Settings used when display == "float".  *curlo-float*
+
+    float.width     number   Window width.  Values <= 1.0 are treated as a
+                             fraction of the editor width (e.g. 0.6 = 60%).
+                             Values > 1.0 are absolute column counts.
+                             Default: 0.6
+
+    float.height    number   Window height.  Same fraction / absolute logic.
+                             Default: 0.8
+
+    float.border    string   Border style; any value accepted by |nvim_open_win|
+                             ("none","single","double","rounded","solid","shadow"
+                              or a custom table).
+                             Default: "rounded"
+
+    float.title     string   Title displayed in the border (requires Nvim 0.9+).
+                             Set to "" or nil to disable.
+                             Default: " curlo "
+
+  format_json       boolean  Auto-format JSON responses.
+                             Default: true  (uses jq, python3, or vim.json)
+
+  format_xml        boolean  Auto-format XML/HTML responses.
+                             Default: true  (uses xmllint)
+
+==============================================================================
+DISPLAY MODE EXAMPLES                                         *curlo-examples*
+
+Vertical split (default): >lua
+  require("curlo").setup({ display = "vsplit", result_win_width = 90 })
+<
+
+Horizontal split: >lua
+  require("curlo").setup({ display = "split", result_win_height = 15 })
+<
+
+Centred float occupying 70 % of the screen: >lua
+  require("curlo").setup({
+    display = "float",
+    float = { width = 0.7, height = 0.7, border = "double", title = " response " },
+  })
+<
+
+Absolute-size float (120 × 40): >lua
+  require("curlo").setup({
+    display = "float",
+    float = { width = 120, height = 40, border = "single" },
+  })
+<
+
+New tab: >lua
+  require("curlo").setup({ display = "tab" })
+<
+
+==============================================================================
+SYNTAX HIGHLIGHTING                                           *curlo-syntax*
+
+The following elements are highlighted in `.curl` files:
+
+  - `curl` keyword                      |Statement|
+  - HTTP methods (GET, POST, …)         |Type|
+  - Flags (--header, -X, …)             |Identifier|
+  - URLs                                |Underlined|
+  - Quoted strings                      |String|
+  - Header names / values               |Special| / |Constant|
+  - Continuation backslash              |NonText|
+  - `{{VARIABLE}}` placeholders         |PreProc|
+  - `@name = value` definitions         |Define|
+  - `@var <- $.path` captures           |PreProc| / |Operator|
+  - Comments (`# …`)                    |Comment|
+
+==============================================================================
+vim:tw=78:ts=8:noet:ft=help:norl:
