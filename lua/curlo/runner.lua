@@ -61,9 +61,10 @@ function M.run(argv, cfg, captures)
   local url, method = extract_request_info(argv)
   local modified_argv, header_tmp = inject_header_capture(argv)
 
-  window.show_loading(cmd_str, cfg)
+  local cancel_spinner = window.show_loading(cmd_str, cfg)
 
   local function on_done(body, headers, stderr, exit_code)
+    cancel_spinner()
     if exit_code ~= 0 and body == "" then
       window.show_error(string.format("curl exited with code %d\n\n%s", exit_code, stderr), cfg)
       return

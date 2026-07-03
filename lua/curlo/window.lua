@@ -353,10 +353,51 @@ function M.open_entry(entry, cfg)
   end, { buffer = bufnr, silent = true, desc = "Next curl response" })
 end
 
+local SPINNER_FRAMES = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
+
 ---@param cmd_str string
 ---@param cfg CurloConfig
+---@return fun() cancel
 function M.show_loading(cmd_str, cfg)
-  M.show({ "# Running curl...", "", "  " .. cmd_str, "" }, "markdown", cfg)
+  local bufnr = get_or_create_buf()
+  local start_ms = vim.uv.now()
+  local frame = 1
+
+  local function make_lines(spinner, elapsed_s)
+    return {
+      "",
+      string.format("  %s  Running...  (%ds)", spinner, elapsed_s),
+      "",
+      "  " .. cmd_str,
+      "",
+    }
+  end
+
+  M.show(make_lines(SPINNER_FRAMES[frame], 0), "markdown", cfg)
+
+  local timer = vim.uv.new_timer()
+  timer:start(100, 100, function()
+    vim.schedule(function()
+      if not vim.api.nvim_buf_is_valid(bufnr) then
+        timer:stop()
+        timer:close()
+        return
+      end
+      frame = (frame % #SPINNER_FRAMES) + 1
+      local elapsed_s = math.floor((vim.uv.now() - start_ms) / 1000)
+      local lines = make_lines(SPINNER_FRAMES[frame], elapsed_s)
+      vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
+      vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+      vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+    end)
+  end)
+
+  return function()
+    if not timer:is_closing() then
+      timer:stop()
+      timer:close()
+    end
+  end
 end
 
 ---@param msg string
