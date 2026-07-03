@@ -1,4 +1,5 @@
 local parser = require("curlo.parser")
+local capture = require("curlo.capture")
 
 describe("curlo.parser", function()
   describe("find_at_cursor", function()
@@ -68,6 +69,45 @@ describe("curlo.parser", function()
       assert.equals("https://first.com", argv1[2])
       assert.equals("https://second.com", argv2[2])
     end)
+
+    it("returns output_file from >> directive after command", function()
+      local lines = {
+        "curl https://example.com",
+        ">> /tmp/result.json",
+      }
+      local argv, output_file = parser.find_at_cursor(lines, 1)
+      assert.is_not_nil(argv)
+      assert.equals("/tmp/result.json", output_file)
+    end)
+
+    it("returns nil output_file when no >> directive", function()
+      local lines = { "curl https://example.com" }
+      local argv, output_file = parser.find_at_cursor(lines, 1)
+      assert.is_not_nil(argv)
+      assert.is_nil(output_file)
+    end)
+
+    it("finds >> after capture directives (capture then redirect)", function()
+      local lines = {
+        "curl https://example.com",
+        "@token <- $.access_token",
+        ">> /tmp/out.json",
+      }
+      local argv, output_file = parser.find_at_cursor(lines, 1)
+      assert.is_not_nil(argv)
+      assert.equals("/tmp/out.json", output_file)
+    end)
+
+    it("finds >> before capture directives (redirect then capture)", function()
+      local lines = {
+        "curl https://example.com",
+        ">> /tmp/out.json",
+        "@token <- $.access_token",
+      }
+      local argv, output_file = parser.find_at_cursor(lines, 1)
+      assert.is_not_nil(argv)
+      assert.equals("/tmp/out.json", output_file)
+    end)
   end)
 
   describe("extract_all", function()
@@ -93,7 +133,97 @@ describe("curlo.parser", function()
       local lines = { "https://example.com -X POST" }
       local cmds = parser.extract_all(lines)
       assert.equals(1, #cmds)
-      assert.equals("curl", cmds[1][1])
+      assert.equals("curl", cmds[1].argv[1])
+    end)
+
+    it("captures >> redirect path", function()
+      local lines = {
+        "curl https://example.com",
+        "",
+        ">> /tmp/out.json",
+      }
+      local cmds = parser.extract_all(lines)
+      assert.equals(1, #cmds)
+      assert.equals("/tmp/out.json", cmds[1].output_file)
+    end)
+
+    it("output_file is nil when no redirect is present", function()
+      local lines = { "curl https://example.com" }
+      local cmds = parser.extract_all(lines)
+      assert.equals(1, #cmds)
+      assert.is_nil(cmds[1].output_file)
+    end)
+
+    it("finds >> after capture directives in extract_all", function()
+      local lines = {
+        "curl https://example.com",
+        "@token <- $.access_token",
+        ">> /tmp/out.json",
+      }
+      local cmds = parser.extract_all(lines)
+      assert.equals(1, #cmds)
+      assert.equals("/tmp/out.json", cmds[1].output_file)
+    end)
+  end)
+end)
+
+describe("curlo.capture", function()
+  describe("find_captures_at_cursor", function()
+    it("finds a capture directive after the command", function()
+      local lines = {
+        "curl https://example.com",
+        "@token <- $.access_token",
+      }
+      local caps = capture.find_captures_at_cursor(lines, 1)
+      assert.equals(1, #caps)
+      assert.equals("token", caps[1].var)
+    end)
+
+    it("finds captures when >> comes before them (redirect then capture)", function()
+      local lines = {
+        "curl https://example.com",
+        ">> /tmp/out.json",
+        "@token <- $.access_token",
+      }
+      local caps = capture.find_captures_at_cursor(lines, 1)
+      assert.equals(1, #caps)
+      assert.equals("token", caps[1].var)
+    end)
+
+    it("finds captures when >> comes after them (capture then redirect)", function()
+      local lines = {
+        "curl https://example.com",
+        "@token <- $.access_token",
+        ">> /tmp/out.json",
+      }
+      local caps = capture.find_captures_at_cursor(lines, 1)
+      assert.equals(1, #caps)
+      assert.equals("token", caps[1].var)
+    end)
+
+    it("finds multiple captures with >> in the middle", function()
+      local lines = {
+        "curl https://example.com",
+        "@token <- $.access_token",
+        ">> /tmp/out.json",
+        "@expires <- $.expires_in",
+      }
+      local caps = capture.find_captures_at_cursor(lines, 1)
+      assert.equals(2, #caps)
+      assert.equals("token", caps[1].var)
+      assert.equals("expires", caps[2].var)
+    end)
+
+    it("does not bleed captures into the next command block", function()
+      local lines = {
+        "curl https://first.com",
+        "@token <- $.access_token",
+        "",
+        "",
+        "curl https://second.com",
+      }
+      local caps = capture.find_captures_at_cursor(lines, 1)
+      assert.equals(1, #caps)
     end)
   end)
 end)

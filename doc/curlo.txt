@@ -16,6 +16,7 @@ Features:
   - File-local variable definitions (`@name = value`)
   - `.env` file support for environment-specific secrets
   - Response capture directives (`@var <- $.json.path`)
+  - Output redirection to file (`>> path/to/file`)
   - Session history with navigation between responses
   - Fully configurable keymap and window behaviour
 
@@ -182,6 +183,42 @@ again overwrites previous captured values.  Use `:CurloReset` to clear all
 captured variables.
 
 ==============================================================================
+OUTPUT REDIRECTION                                            *curlo-redirect*
+
+Append `>> path/to/file` on its own line immediately after a request block to
+write the formatted response body to a file on disk.  The file is created or
+overwritten on each run.  At most one blank line or comment is allowed between
+the request block and the redirect directive.
+
+Example — save a JSON response: >
+
+  curl https://jsonplaceholder.typicode.com/todos/1
+
+  >> /tmp/todo.json
+
+<
+Example — combined with variable definitions and captures: >
+
+  @base = https://api.example.com
+
+  curl {{base}}/users/42
+    -H "Authorization: Bearer {{token}}"
+
+  >> ~/responses/user.json
+
+<
+The path is expanded via `vim.fn.expand()`, so `~` and environment variables
+such as `$HOME` are supported.
+
+
+A notification is shown on success: >
+
+  [curlo] Response written to /tmp/todo.json
+
+<
+The `>>` line is highlighted in `.curl` files (operator + path).
+
+==============================================================================
 CONFIGURATION                                                 *curlo-config*
 
 All options are passed to `require("curlo").setup({...})`.
@@ -279,6 +316,7 @@ The following elements are highlighted in `.curl` files:
   - `{{VARIABLE}}` placeholders         |PreProc|
   - `@name = value` definitions         |Define|
   - `@var <- $.path` captures           |PreProc| / |Operator|
+  - `>> path` output redirection        |Operator| / |String|
   - Comments (`# …`)                    |Comment|
 
 ==============================================================================

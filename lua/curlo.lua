@@ -11,7 +11,8 @@ local M = {}
 ---@param argv     string[]
 ---@param lines    string[]   full buffer lines (for @var extraction)
 ---@param captures CurloCapture[]  directives to apply after the response
-local function resolve_and_run(argv, lines, captures)
+---@param output_file string|nil   optional file path to write the response
+local function resolve_and_run(argv, lines, captures, output_file)
   local file_vars = variables.extract_definitions(lines)
   local curl_path = vim.api.nvim_buf_get_name(vim.api.nvim_get_current_buf())
   local env_vars = variables.load_env_file(curl_path)
@@ -23,7 +24,7 @@ local function resolve_and_run(argv, lines, captures)
     vim.notify("[curlo] Unresolved variables: " .. table.concat(unresolved, ", "), vim.log.levels.WARN)
   end
 
-  runner.run(resolved, config.values, captures)
+  runner.run(resolved, config.values, captures, output_file)
 end
 
 function M.run_curl_at_cursor()
@@ -31,14 +32,14 @@ function M.run_curl_at_cursor()
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   local cursor_row = vim.api.nvim_win_get_cursor(0)[1]
 
-  local argv = parser.find_at_cursor(lines, cursor_row)
+  local argv, output_file = parser.find_at_cursor(lines, cursor_row)
   if not argv then
     vim.notify("[curlo] No curl command found at cursor", vim.log.levels.WARN)
     return
   end
 
   local captures = capture.find_captures_at_cursor(lines, cursor_row)
-  resolve_and_run(argv, lines, captures)
+  resolve_and_run(argv, lines, captures, output_file)
 end
 
 function M.run_all()
@@ -64,10 +65,10 @@ function M.run_all()
       end
     end
   end
-  for i, argv in ipairs(cmds) do
+  for i, cmd in ipairs(cmds) do
     local row = cmd_rows[i] or 1
     local caps = capture.find_captures_at_cursor(lines, row)
-    resolve_and_run(argv, lines, caps)
+    resolve_and_run(cmd.argv, lines, caps, cmd.output_file)
   end
 end
 

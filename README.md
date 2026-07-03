@@ -142,6 +142,15 @@ $PROCESS_ENV
 
 Captured values persist for the entire session. Running a request again overwrites the previous captured values. Use `:CurloReset` to clear all captured variables.
 
+## Output redirection
+
+Append `>> path` on its own line immediately after a request block to write the formatted response body to a file.
+
+```
+curl https://api.example.com/users/1
+>> ~/responses/user.json
+```
+
 ## Commands
 
 | Command         | Description                             |

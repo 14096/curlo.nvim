@@ -55,7 +55,8 @@ end
 ---@param argv     string[]
 ---@param cfg      CurloConfig
 ---@param captures CurloCapture[]|nil  optional capture directives to apply after response
-function M.run(argv, cfg, captures)
+---@param output_file string|nil       optional file path to write the formatted response body
+function M.run(argv, cfg, captures, output_file)
   captures = captures or {}
   local cmd_str = argv_to_str(argv)
   local url, method = extract_request_info(argv)
@@ -70,7 +71,7 @@ function M.run(argv, cfg, captures)
       return
     end
     capture.apply_captures(captures, body)
-    window.show_result(body, headers, cfg, { url = url, method = method })
+    window.show_result(body, headers, cfg, { url = url, method = method }, output_file)
   end
 
   vim.system(modified_argv, { text = true }, function(result)

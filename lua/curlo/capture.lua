@@ -59,6 +59,9 @@ function M.find_captures_at_cursor(lines, cursor_row)
     if t == "" or t:sub(1, 1) == "#" then
       break
     end
+    if t:match("^@[%w_][%w_.%-]* *<%-") or t:sub(1, 2) == ">>" then
+      break
+    end
     block_start = block_start - 1
   end
 
@@ -73,6 +76,8 @@ function M.find_captures_at_cursor(lines, cursor_row)
       end
       block_end = i
     elseif trimmed == "" then
+      break
+    elseif trimmed:match("^@[%w_][%w_.%-]* *<%-") or trimmed:sub(1, 2) == ">>" then
       break
     else
       local sq = select(2, stripped:gsub("'", "")) % 2 == 1
@@ -101,6 +106,9 @@ function M.find_captures_at_cursor(lines, cursor_row)
       end
       i = i + 1
     elseif trimmed:sub(1, 1) == "#" then
+      i = i + 1
+    elseif trimmed:sub(1, 2) == ">>" then
+      blank_count = 0
       i = i + 1
     else
       local cap = parse_capture_line(line)

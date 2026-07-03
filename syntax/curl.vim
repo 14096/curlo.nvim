@@ -33,7 +33,9 @@ syntax match curlContinuation /\\$/
 
 syntax match curlDataFlag /\v(--data(-raw|-binary|-urlencode)?|-d)\ze(\s|$)/
 
-syntax match curlVariable /{{[^}]*}}/
+syntax match curlRedirect     /^\s*>>.*$/ contains=curlRedirectOp,curlRedirectPath
+syntax match curlRedirectOp   /^\s*>>/                     contained
+syntax match curlRedirectPath />>\s*\zs.*/                 contained
 
 highlight default link curlComment      Comment
 highlight default link curlVarDefName   Define
@@ -53,6 +55,8 @@ highlight default link curlHeaderKey    Special
 highlight default link curlHeaderValue  Constant
 highlight default link curlContinuation NonText
 highlight default link curlDataFlag     Keyword
+highlight default link curlRedirectOp   Operator
+highlight default link curlRedirectPath String
 highlight default link curlVariable     PreProc
 
 let b:current_syntax = "curl"

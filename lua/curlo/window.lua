@@ -250,11 +250,30 @@ function M.show(content, filetype, cfg)
   end, { buffer = bufnr, silent = true, desc = "Show curlo help" })
 end
 
+---@param path        string
+---@param body        string  raw response body
+---@param headers     string  raw response headers
+---@param cfg         CurloConfig
+local function write_to_file(path, body, headers, cfg)
+  local formatter = require("curlo.formatter")
+  local formatted = formatter.format(body, headers, cfg)
+  path = vim.fn.expand(path)
+  local f, err = io.open(path, "w")
+  if not f then
+    vim.notify("[curlo] Could not write to file: " .. (err or path), vim.log.levels.ERROR)
+    return
+  end
+  f:write(formatted)
+  f:close()
+  vim.notify("[curlo] Response written to " .. path, vim.log.levels.INFO)
+end
+
 ---@param body     string
 ---@param headers  string
 ---@param cfg      CurloConfig
 ---@param request  {url:string, method:string}
-function M.show_result(body, headers, cfg, request)
+---@param output_file string|nil  optional file path to write the formatted body
+function M.show_result(body, headers, cfg, request, output_file)
   local bufnr = get_or_create_buf()
 
   local entry = {
@@ -274,6 +293,10 @@ function M.show_result(body, headers, cfg, request)
 
   local content, ft = build_from_state(bufnr)
   M.show(content, ft, cfg)
+
+  if output_file then
+    write_to_file(output_file, body, headers, cfg)
+  end
 
   vim.keymap.set("n", "H", function()
     local s = state[bufnr]
