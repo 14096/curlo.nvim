@@ -13,6 +13,7 @@ Features:
   - Run curl under cursor or all commands in buffer
   - Auto-format JSON (via jq / python3 / vim.json) and XML (via xmllint)
   - Four display modes: vsplit, split, float, tab
+  - Magic variables (`{{uuid}}`, `{{timestamp}}`, `{{date}}`, `{{randomint}}`)
   - File-local variable definitions (`@name = value`)
   - `.env` file support for environment-specific secrets
   - Response capture directives (`@var <- $.json.path`)
@@ -104,6 +105,42 @@ The following keymaps are available inside the result window:
 VARIABLES                                                     *curlo-variables*
 
 ------------------------------------------------------------------------------
+Magic variables                                               *curlo-magic-vars*
+
+Magic variables automatically generate dynamic values without any definition.
+Use them directly in your requests:
+
+  {{uuid}}       Random UUID v4 format string
+  {{timestamp}}  Current Unix timestamp (seconds since epoch)
+  {{date}}       Current date in yyyy-MM-dd format
+  {{randomint}}  Random integer between 1 and 9999
+
+All magic variables are case-insensitive and generate a new value each time
+they are referenced within a request.
+
+Examples: >
+
+  # API request with request ID and timestamp
+  curl -X POST https://api.example.com/events
+    -H "X-Request-ID: {{uuid}}"
+    -H "X-Timestamp: {{timestamp}}"
+    -d '{"event": "signup", "date": "{{date}}"}'
+
+  # Pagination with random page
+  curl https://api.example.com/items?page={{randomint}}
+
+  # Combine multiple magic variables
+  curl https://api.example.com/report
+    -d '{
+      "id": "{{uuid}}",
+      "generated_at": {{timestamp}},
+      "report_date": "{{date}}",
+      "sample": {{randomint}}
+    }'
+
+<
+
+------------------------------------------------------------------------------
 File-local variables                                          *curlo-file-vars*
 
 Define variables anywhere in your `.curl` file: >
@@ -140,10 +177,11 @@ Resolution priority                                           *curlo-var-priorit
 
 Variables are resolved in this order (highest to lowest):
 
-  1. Captured runtime variables  (set by `@var <- $.path` directives)
-  2. File-local `@name = value` definitions
-  3. `.env` file entries
-  4. Process environment (`$PROCESS_ENV`)
+  1. Magic variables             ({{uuid}}, {{timestamp}}, {{date}}, {{randomint}})
+  2. Captured runtime variables  (set by `@var <- $.path` directives)
+  3. File-local `@name = value` definitions
+  4. `.env` file entries
+  5. Process environment (`$PROCESS_ENV`)
 
 ==============================================================================
 CAPTURES                                                      *curlo-captures*

@@ -391,8 +391,6 @@ function M.show_loading(cmd_str, cfg)
       "",
       string.format("  %s  Running...  (%ds)", spinner, elapsed_s),
       "",
-      "  " .. cmd_str,
-      "",
     }
   end
 

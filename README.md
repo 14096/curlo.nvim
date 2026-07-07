@@ -59,7 +59,30 @@ require("curlo").setup({
 
 ## Variables
 
-### local variables
+### Magic variables
+
+Magic variables automatically generate dynamic values.
+
+| Variable        | Value                            | Format/Range                  | Example             |
+| --------------- | -------------------------------- | ----------------------------- | ------------------- |
+| `{{uuid}}`      | Random UUID v4                   | 36-char UUID string           | `550e8400-e29b-...` |
+| `{{timestamp}}` | Current Unix timestamp (seconds) | Numeric (seconds since epoch) | `1783436416`        |
+| `{{date}}`      | Current date                     | `yyyy-MM-dd`                  | `2026-07-07`        |
+| `{{randomint}}` | Random integer                   | 1 to 9999                     | `4283`              |
+
+All magic variables are **case-insensitive** and generate a new value each time they're referenced.
+
+**Examples:**
+
+```
+# API request with request ID and timestamp
+curl -X POST https://api.example.com/events
+  -H "X-Request-ID: {{uuid}}"
+  -H "X-Timestamp: {{timestamp}}"
+  -d '{"event": "signup", "date": "{{date}}"}'
+```
+
+### Local variables
 
 Define variables anywhere in your `.curl` file using `@name = value`.
 Reference them in requests with `{{name}}` (lookup is case-insensitive).
@@ -128,19 +151,19 @@ curl https://api.example.com/users
 
 ### Resolution priority
 
-Runtime captures have the **highest** priority in variable resolution:
+Variable resolution follows this order (highest to lowest priority):
 
 ```
-captured runtime vars  (set by @var <- $.path directives)
+magic variables       ({{uuid}}, {{timestamp}}, {{date}}, {{randomint}})
       ↓
-@name = value  (file-local definitions)
+captured runtime vars (set by @var <- $.path directives)
+      ↓
+@name = value         (file-local definitions)
       ↓
 .env file
       ↓
 $PROCESS_ENV
 ```
-
-Captured values persist for the entire session. Running a request again overwrites the previous captured values. Use `:CurloReset` to clear all captured variables.
 
 ## Output redirection
 

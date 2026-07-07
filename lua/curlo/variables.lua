@@ -2,6 +2,46 @@ local capture = require("curlo.capture")
 
 local M = {}
 
+---@return string UUID v4
+local function generate_uuid()
+  local random = math.random
+  local fmt = "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
+  return string.format(
+    fmt,
+    random(0, 255),
+    random(0, 255),
+    random(0, 255),
+    random(0, 255),
+    random(0, 255),
+    random(0, 255),
+    bit.bor(random(0, 255), 0x40),
+    random(0, 255),
+    bit.bor(random(0, 255), 0x80),
+    random(0, 255),
+    random(0, 255),
+    random(0, 255),
+    random(0, 255),
+    random(0, 255),
+    random(0, 255),
+    random(0, 255)
+  )
+end
+
+---@return string Unix timestamp in seconds
+local function get_timestamp()
+  return tostring(os.time())
+end
+
+---@return string Date in yyyy-MM-dd format
+local function get_date()
+  return os.date("%Y-%m-%d")
+end
+
+---@return string Random integer from 1 to 9999
+local function get_random_int()
+  return tostring(math.random(1, 9999))
+end
+
 ---@param lines string[]
 ---@return table<string,string>  map of lowercased name → raw value
 function M.extract_definitions(lines)
@@ -56,6 +96,17 @@ function M.build_context(file_vars, env_vars)
   return setmetatable({}, {
     __index = function(_, key)
       local lkey = key:lower()
+
+      if lkey == "uuid" then
+        return generate_uuid()
+      elseif lkey == "timestamp" then
+        return get_timestamp()
+      elseif lkey == "date" then
+        return get_date()
+      elseif lkey == "randomint" then
+        return get_random_int()
+      end
+
       local rv = runtime[lkey]
       if rv ~= nil then
         return rv
