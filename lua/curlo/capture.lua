@@ -176,7 +176,7 @@ function M.apply_captures(captures, body)
 
     if value ~= nil then
       M.set_runtime(cap.var, value)
-      vim.notify(string.format("[curlo] @%s = %s", cap.var, value), vim.log.levels.INFO)
+      vim.notify(string.format("[curlo] @%s captured", cap.var), vim.log.levels.INFO)
     else
       vim.notify(string.format("[curlo] capture failed: @%s <- %s", cap.var, cap.path), vim.log.levels.WARN)
     end
