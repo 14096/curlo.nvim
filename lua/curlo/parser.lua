@@ -182,39 +182,49 @@ local function parse_curl_line(line)
 end
 
 --- Scan `lines` starting from `start_idx` (1-based) and return the path
---- specified by a `>> path` redirect directive that follows the command block.
+--- specified by a `>> path` redirect directive, and/or a jq filter specified
+--- by a `| <filter>` directive that follows the command block.
 --- Capture directives (`@var <- $.path`) and comments are skipped; at most one
 --- blank line is tolerated between any two elements of the trailing block.
 ---@param lines string[]
 ---@param start_idx number  first line index to search from (1-based)
 ---@return string|nil output_file
+---@return string|nil jq_filter
 local function find_redirect_after(lines, start_idx)
   local blank_seen = false
+  local output_file = nil
+  local jq_filter = nil
   for i = start_idx, #lines do
     local trimmed = lines[i]:gsub("^%s+", ""):gsub("%s+$", "")
     if trimmed == "" then
       if blank_seen then
-        return nil
+        break
       end
       blank_seen = true
     elseif trimmed:sub(1, 2) == ">>" then
       local path = trimmed:match("^>>%s*(.+)$")
       if path and path ~= "" then
-        return path
+        output_file = path
       end
-      return nil
+      blank_seen = false
+    elseif trimmed:sub(1, 1) == "|" then
+      local filter = trimmed:match("^|%s*(.+)$")
+      if filter and filter ~= "" then
+        jq_filter = filter
+      end
+      blank_seen = false
     elseif trimmed:sub(1, 1) == "#" then
     elseif trimmed:match("^@[%w_][%w_.%-]* *<%-") then
       blank_seen = false
     else
-      return nil
+      break
     end
   end
-  return nil
+  return output_file, jq_filter
 end
 
 ---@param lines string[]
----@return table[] list of {argv: string[], output_file: string|nil}
+---@return table[] list of {argv: string[], output_file: string|nil, jq_filter: string|nil}
 function M.extract_all(lines)
   local joined = join_continuations(lines)
   local cmds = {}
@@ -282,7 +292,9 @@ function M.extract_all(lines)
   for idx, entry in ipairs(cmds) do
     local end_row = cmd_end_rows[idx]
     if end_row then
-      entry.output_file = find_redirect_after(lines, end_row + 1)
+      local output_file, jq_filter = find_redirect_after(lines, end_row + 1)
+      entry.output_file = output_file
+      entry.jq_filter = jq_filter
     end
   end
 
@@ -293,6 +305,7 @@ end
 ---@param cursor_row number 1-indexed row
 ---@return string[]?   argv
 ---@return string|nil  output_file
+---@return string|nil  jq_filter
 function M.find_at_cursor(lines, cursor_row)
   local cmd_lines = {}
   local current_start = nil
@@ -363,13 +376,13 @@ function M.find_at_cursor(lines, cursor_row)
       for _, jline in ipairs(joined) do
         local tokens = parse_curl_line(jline)
         if tokens then
-          local output_file = find_redirect_after(lines, entry.end_row + 1)
-          return tokens, output_file
+          local output_file, jq_filter = find_redirect_after(lines, entry.end_row + 1)
+          return tokens, output_file, jq_filter
         end
       end
     end
   end
-  return nil, nil
+  return nil, nil, nil
 end
 
 return M

@@ -56,7 +56,8 @@ end
 ---@param cfg      CurloConfig
 ---@param captures CurloCapture[]|nil  optional capture directives to apply after response
 ---@param output_file string|nil       optional file path to write the formatted response body
-function M.run(argv, cfg, captures, output_file)
+---@param jq_filter  string|nil        optional jq filter to apply to the response body
+function M.run(argv, cfg, captures, output_file, jq_filter)
   captures = captures or {}
   local cmd_str = argv_to_str(argv)
   local url, method = extract_request_info(argv)
@@ -71,7 +72,7 @@ function M.run(argv, cfg, captures, output_file)
       return
     end
     capture.apply_captures(captures, body)
-    window.show_result(body, headers, cfg, { url = url, method = method }, output_file)
+    window.show_result(body, headers, cfg, { url = url, method = method }, output_file, jq_filter)
   end
 
   vim.system(modified_argv, { text = true }, function(result)

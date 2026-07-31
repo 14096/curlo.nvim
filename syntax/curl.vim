@@ -37,6 +37,10 @@ syntax match curlRedirect     /^\s*>>.*$/ contains=curlRedirectOp,curlRedirectPa
 syntax match curlRedirectOp   /^\s*>>/                     contained
 syntax match curlRedirectPath />>\s*\zs.*/                 contained
 
+syntax match curlJqFilter     /^\s*|.*$/ contains=curlJqFilterOp,curlJqFilterExpr
+syntax match curlJqFilterOp   /^\s*|/                      contained
+syntax match curlJqFilterExpr /|\s*\zs.*/                  contained
+
 highlight default link curlComment      Comment
 highlight default link curlVarDefName   Define
 highlight default link curlVarDefEq     Operator
@@ -57,6 +61,8 @@ highlight default link curlContinuation NonText
 highlight default link curlDataFlag     Keyword
 highlight default link curlRedirectOp   Operator
 highlight default link curlRedirectPath String
+highlight default link curlJqFilterOp   Operator
+highlight default link curlJqFilterExpr String
 highlight default link curlVariable     PreProc
 
 let b:current_syntax = "curl"

@@ -1,5 +1,9 @@
 # curlo.nvim
 
+![logo](./assets/logo.png)
+
+---
+
 <div style="display: flex; gap: 10px;">
   <img src="./assets/screen01.png" alt="01" width="300"/>
   <img src="./assets/screen02.png" alt="02" width="300"/>
@@ -164,6 +168,23 @@ captured runtime vars (set by @var <- $.path directives)
       ↓
 $PROCESS_ENV
 ```
+
+## jq filtering
+
+Append `| <jq filter>` on its own line immediately after a request block to filter the JSON response through [`jq`](https://jqlang.github.io/jq/) before it's displayed (and before it's written to a file, if `>> path` is also used).
+
+```
+curl https://api.example.com/users
+| .[] | select(.active == true)
+```
+
+```
+curl https://api.example.com/users/1
+>> ~/responses/user.json
+| { id, name }
+```
+
+Requires `jq` to be installed and on `$PATH`. If `jq` is unavailable, the unfiltered body is shown instead.
 
 ## Output redirection
 

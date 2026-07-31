@@ -18,6 +18,7 @@ Features:
   - `.env` file support for environment-specific secrets
   - Response capture directives (`@var <- $.json.path`)
   - Output redirection to file (`>> path/to/file`)
+  - jq filtering of JSON responses (`| <jq filter>`)
   - Session history with navigation between responses
   - Fully configurable keymap and window behaviour
 
@@ -27,6 +28,7 @@ REQUIREMENTS                                                  *curlo-requirement
   - Neovim >= 0.9
   - `curl` on $PATH
   - Optional: `jq` or `python3` for JSON formatting
+  - Optional: `jq` for filtering JSON responses (`| <filter>` directive)
   - Optional: `xmllint` for XML/HTML formatting
 
 ==============================================================================
@@ -257,6 +259,44 @@ A notification is shown on success: >
 The `>>` line is highlighted in `.curl` files (operator + path).
 
 ==============================================================================
+JQ FILTERING                                                  *curlo-jq-filter*
+
+Append `| <jq filter>` on its own line immediately after a request block to
+pipe the JSON response through `jq` before it is displayed (and before it is
+written to a file, if `>> path` is also used).  At most one blank line or
+comment is allowed between the request block and the filter directive, and
+it may appear in any order relative to a `>>` redirect or `@var <- $.path`
+capture directives.
+
+Requires `jq` to be installed and on `$PATH`.  If `jq` is unavailable, the
+unfiltered (but still pretty-printed, where possible) body is shown instead.
+
+Example — filter an array: >
+
+  curl https://api.example.com/users
+  | .[] | select(.active == true)
+
+<
+Example — combined with output redirection: >
+
+  curl https://api.example.com/users/1
+  >> ~/responses/user.json
+  | { id, name }
+
+<
+Example — combined with captures: >
+
+  curl -X POST https://auth.example.com/oauth/token
+    -H "Content-Type: application/x-www-form-urlencoded"
+    -d "grant_type=client_credentials&client_id=myapp&client_secret=secret"
+
+  @access_token <- $.access_token
+  | { access_token, expires_in }
+
+<
+The `|` line is highlighted in `.curl` files (operator + filter expression).
+
+==============================================================================
 CONFIGURATION                                                 *curlo-config*
 
 All options are passed to `require("curlo").setup({...})`.
@@ -355,6 +395,7 @@ The following elements are highlighted in `.curl` files:
   - `@name = value` definitions         |Define|
   - `@var <- $.path` captures           |PreProc| / |Operator|
   - `>> path` output redirection        |Operator| / |String|
+  - `| <filter>` jq filtering            |Operator| / |String|
   - Comments (`# …`)                    |Comment|
 
 ==============================================================================

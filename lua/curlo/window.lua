@@ -145,7 +145,7 @@ end
 local function build_from_state(bufnr)
   local s = state[bufnr]
   local formatter = require("curlo.formatter")
-  local formatted, ft = formatter.format(s.body, s.headers, s.cfg)
+  local formatted, ft = formatter.format(s.body, s.headers, s.cfg, s.jq_filter)
   local lines = {}
 
   local req = s.request or {}
@@ -254,9 +254,10 @@ end
 ---@param body        string  raw response body
 ---@param headers     string  raw response headers
 ---@param cfg         CurloConfig
-local function write_to_file(path, body, headers, cfg)
+---@param jq_filter   string|nil
+local function write_to_file(path, body, headers, cfg, jq_filter)
   local formatter = require("curlo.formatter")
-  local formatted = formatter.format(body, headers, cfg)
+  local formatted = formatter.format(body, headers, cfg, jq_filter)
   path = vim.fn.expand(path)
   local f, err = io.open(path, "w")
   if not f then
@@ -273,7 +274,8 @@ end
 ---@param cfg      CurloConfig
 ---@param request  {url:string, method:string}
 ---@param output_file string|nil  optional file path to write the formatted body
-function M.show_result(body, headers, cfg, request, output_file)
+---@param jq_filter  string|nil   optional jq filter to apply to the response body
+function M.show_result(body, headers, cfg, request, output_file, jq_filter)
   local bufnr = get_or_create_buf()
 
   local entry = {
@@ -288,6 +290,7 @@ function M.show_result(body, headers, cfg, request, output_file)
     headers = headers,
     request = request or {},
     timestamp = history.current().timestamp,
+    jq_filter = jq_filter,
     cfg = vim.tbl_extend("force", vim.deepcopy(cfg), { show_headers = false }),
   }
 
@@ -295,7 +298,7 @@ function M.show_result(body, headers, cfg, request, output_file)
   M.show(content, ft, cfg)
 
   if output_file then
-    write_to_file(output_file, body, headers, cfg)
+    write_to_file(output_file, body, headers, cfg, jq_filter)
   end
 
   vim.keymap.set("n", "H", function()
